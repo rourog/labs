@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Rourog Innovations - BioAnalytics</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Sour+Gummy:ital,wght@0,100..900;1,100..900&family=Syne+Mono&display=swap" rel="stylesheet">
+  <style>
+    /* =====  GLOBAL  =================================================== */
+    html,body{margin:0;padding:0;height:100%;font-family:sans-serif;}
+    .banner{height:50px;background:#F9B872;color:#333;display:flex;align-items:center;padding-left:10px;font-family:'Sour Gummy', monospace; font-size: 40px;}
+    .footer{height:50px;background:#FAE7A5;color:#333;display:flex;align-items:center;justify-content:center;position:fixed;bottom:0;width:100%;}
+    .contenido{display:flex;height:calc(100vh - 100px);overflow:hidden;}
+
+    /* =====  COLUMNA IZQUIERDA  (2 sub‑columnas)  ====================== */
+    .izquierda{
+      flex:1;
+      background:#FAE7A5;
+      padding:10px;
+      display:flex;                /* contenedor horizontal */
+      gap:10px;
+      overflow:hidden;
+    }
+
+    /* --- Columna A: dropzone + visor PDF ------------------------------ */
+    .col-left{
+      flex:1;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      overflow:hidden;
+    }
+
+    /* Dropzone: llena toda la mitad izquierda al inicio */
+    #dropzone{
+      flex:1 1 0;                 /* se expande verticalmente */
+      min-height:120px;
+      border:2px dashed #F9B872;border-radius:10px;
+      display:flex;align-items:center;justify-content:center;
+      background:#fff8ef;color:#333;text-align:center;
+      cursor: pointer;
+    }
+    #dropzone.dragover{background:#fef0d9;}
+
+    /* Visor PDF: oculto hasta que se cargue un archivo */
+    #pdfViewer{
+      flex:1 1 0;
+      display:none;               /* mostrado vía JS */
+      flex-direction:column;align-items:center;gap:10px;min-height:0;
+      overflow:auto;
+    }
+    #pdfPreview{
+      width:100%;height:auto;max-height:100%;
+      border:1px solid #ccc;box-shadow:0 2px 8px rgba(0,0,0,.1);
+    }
+
+    /* --- Columna B: badges + sugerencias — oculta al inicio ----------- */
+    .col-right{
+      flex:1;
+      display:none;               /* mostrado vía JS cuando haya PDF */
+      flex-direction:column;
+      gap:10px;
+      overflow:auto;
+    }
+    #detectedStudies{display:flex;flex-direction:column;gap:8px;}
+    #suggestions{flex:1 1 0;}
+
+    /* =====  COLUMNA DERECHA (texto de resultados)  ==================== */
+    .derecha{
+      flex:1;
+      padding:10px;
+      background:#B6E1E7;
+      display:flex;
+      flex-direction:column;
+      overflow-y:auto;
+    }
+    #resultadosLabs{flex:1;width:100%;resize:none;padding:10px;box-sizing:border-box;font-family:monospace; border-radius: 8px; border: 1px solid #96C2DB;}
+
+    /* =====  BADGES, BOTONES, ETC. ===================================== */
+    .study-badge{
+      background:#F9B872;color:#222;padding:6px 10px;border-radius:4px;font-size:.9rem;cursor:pointer;
+      transition:transform .2s ease,box-shadow .2s ease,background-color .2s ease;
+      text-align: center; font-weight: bold;
+    }
+    .study-badge:hover{transform:scale(1.04);background:#f6a75e;box-shadow:0 4px 8px rgba(0,0,0,.1);}
+    .study-badge.inactive{opacity:.5;text-decoration:line-through;}
+    .mode-badge{background:#FAE7A5;}
+    .mode-badge.active{background:#F9B872;}
+
+    .buttons-container{display:flex;gap:10px;margin-top:10px;}
+
+    /* =====  TEMAS (oscuro y diurno)  ================================== */
+    body.dark{background:#121212;color:#eee;}
+    body.dark .banner,body.dark .footer{background:#1e1e1e;color:#fff;}
+    body.dark .izquierda{background:#1a1a1a;}
+    body.dark .derecha{background:#2a2a2a;}
+    body.dark .study-badge{background:#333;color:#eee;}
+    body.dark .study-badge:hover{background:#444;}
+    body.dark #dropzone{background:#2b2b2b;color:#ccc;border-color:#555;}
+    body.dark textarea{background:#1e1e1e;color:#eee;border:1px solid #555;}
+    body.dark .banner{font-family:'Syne Mono', monospace;}
+
+    body.day{background:#E5EDF1;color:#333;}
+    body.day .banner,body.day .footer{background:#96C2DB;color:#fff;}
+    body.day .izquierda{background:#fff;}
+    body.day .derecha{background:#E5EDF1;}
+    body.day .study-badge{background:#96C2DB;color:#fff;}
+    body.day .study-badge:hover{background:#7AB1CF;}
+    body.day #dropzone{background:#fff;color:#333;border-color:#96C2DB;}
+    body.day textarea{background:#fff;color:#333;border:1px solid #96C2DB;}
+    body.day .theme-toggle{background:#96C2DB;color:#fff;}
+    body.day .theme-toggle:hover{background:#7AB1CF;}
+    body.day .banner{font-family:'Permanent Marker', serif;}
+
+    /* =====  BOTÓN DE TEMA ============================================ */
+    .theme-toggle{
+      width:36px;height:36px;background:#F9B872;border:none;border-radius:8px;margin-left:auto;margin-right:10px;
+      cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;color:#333;
+      transition:background-color .3s ease,transform .3s ease;box-shadow:0 2px 6px rgba(0,0,0,.2);
+    }
+    .theme-toggle:hover{background:#f6a75e;transform:scale(1.1);}
+    body.dark .theme-toggle{background:#444;color:#fff;}
+    
+    /* ===== TUBO DE ENSAYO ===== */
+    .tubo-ensayo {
+      width: 16px;
+      height: 36px;
+      margin-right: 10px;
+    }
+
+    .tubo-ensayo .tube {
+      width: 100%;
+      height: 100%;
+      border: 2px solid #ccc;
+      border-radius: 0px 0px 10px 10px;
+      position: relative;
+      overflow: hidden;
+      background: rgba(255, 255, 255, 0.1);
+      box-shadow: inset 0 0 3px rgba(0, 0, 0, 0.3);
+    }
+
+    .tubo-ensayo .liquid {
+      position: absolute;
+      bottom: 0;
+      width: 100%;
+      height: 0;
+      animation: fillLiquid 2s ease-in-out forwards;
+    }
+
+    body.dark .tubo-ensayo .liquid { background: linear-gradient(to top, #ff5f5f, #b80000); }
+    body.day .tubo-ensayo .liquid { background: linear-gradient(to top, #ffd580, #ff9900); }
+    body.sunset .tubo-ensayo .liquid,
+    body:not(.dark):not(.day) .tubo-ensayo .liquid { background: linear-gradient(to top, #7dffb4, #00b86b); }
+
+    @keyframes fillLiquid {
+      from { height: 0%; }
+      to   { height: 70%; }
+    }
+
+    .tubo-ensayo .bubble {
+      position: absolute;
+      width: 4px;
+      height: 4px;
+      background: white;
+      border-radius: 50%;
+      bottom: 1px;
+      animation: rise 3s infinite ease-in-out;
+      opacity: 0.7;
+    }
+
+    .tubo-ensayo .bubble:nth-child(2) { left: 3px; animation-delay: 0s; }
+    .tubo-ensayo .bubble:nth-child(3) { left: 8px; animation-delay: 1.2s; }
+    .tubo-ensayo .bubble:nth-child(4) { left: 5px; animation-delay: 2.4s; }
+
+    @keyframes rise {
+      0%   { transform: translateY(0) scale(1); opacity: 0.7; }
+      50%  { transform: translateY(-20px) scale(1.2); opacity: 0.4; }
+      100% { transform: translateY(-35px) scale(0.8); opacity: 0; }
+    }
+    
+    .tubo-ensayo .tube::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 10px;
+      width: 4px;
+      border-radius: 10px;
+      height: 100%;
+      background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.3));
+      border-radius: 3px;
+      pointer-events: none;
+      z-index: 2;
+      filter: blur(0.3px);
+    }
+    
+    @keyframes shakeFluidoViolento {
+      0%   { transform: translate(0, 0) rotate(0deg); }
+      5%   { transform: translate(-4px, -3px) rotate(-4deg); }
+      10%  { transform: translate(5px, 3px) rotate(5deg); }
+      15%  { transform: translate(-6px, 2px) rotate(-6deg); }
+      20%  { transform: translate(4px, -3px) rotate(5deg); }
+      25%  { transform: translate(-5px, 1px) rotate(-4deg); }
+      30%  { transform: translate(5px, 0px) rotate(4deg); }
+      35%  { transform: translate(-6px, -2px) rotate(-6deg); }
+      40%  { transform: translate(6px, 3px) rotate(6deg); }
+      45%  { transform: translate(-4px, 1px) rotate(-4deg); }
+      50%  { transform: translate(3px, -4px) rotate(4deg); }
+      55%  { transform: translate(-5px, 2px) rotate(-5deg); }
+      60%  { transform: translate(6px, -3px) rotate(5deg); }
+      65%  { transform: translate(-4px, 1px) rotate(-6deg); }
+      70%  { transform: translate(4px, 2px) rotate(4deg); }
+      75%  { transform: translate(-3px, -2px) rotate(-4deg); }
+      80%  { transform: translate(4px, 1px) rotate(3deg); }
+      85%  { transform: translate(-4px, -1px) rotate(-3deg); }
+      90%  { transform: translate(3px, 2px) rotate(2deg); }
+      95%  { transform: translate(-3px, 0px) rotate(-2deg); }
+      100% { transform: translate(0, 0) rotate(0deg); }
+    }
+    
+    @keyframes nivelLiquidoReaccion {
+      0%   { height: 40%; background: var(--liquido-base); }
+      30%  { height: 20%; background: var(--liquido-base); }
+      60% { height: 100%; background: #009dff; }
+      100% { height: 0%; background: transparent; }
+    }
+
+    .tubo-ensayo.shake .liquid { animation: nivelLiquidoReaccion 6s ease-in-out; }
+    .tubo-ensayo.shake .tube { animation: shakeFluidoViolento 6s ease-in-out; }
+
+    body.dark  { --liquido-base: #ff5f5f; }
+    body.day   { --liquido-base: #ff9900; }
+    body.sunset, body:not(.dark):not(.day) { --liquido-base: #00b86b; }
+  </style>
+</head>
+<body class="day">
+
+  <div class="banner">
+    <div class="tubo-ensayo">
+      <audio id="bubbleSound" src="src/bubble.wav" preload="auto"></audio>
+      <div class="tube">
+        <div class="liquid"></div>
+        <div class="bubble"></div>
+        <div class="bubble"></div>
+        <div class="bubble"></div>
+      </div>
+    </div>
+    BioAnalytics v. 0.0.4
+    <button id="toggleTheme" class="theme-toggle" title="Cambiar tema">🌙</button>
+  </div>
+  <audio id="pdfOk" src="src/confirm.wav" preload="auto"></audio>
+
+  <div class="contenido">
+    <div class="izquierda">
+      <div class="col-left">
+        <div id="dropzone" role="button" tabindex="0" aria-label="Arrastra tu PDF aquí o haz clic para cargarlo">
+          Arrastra tu PDF aquí<br>o haz clic para cargarlo
+        </div>
+        <div id="pdfViewer">
+          <canvas id="pdfPreview"></canvas>
+        </div>
+      </div>
+
+      <div class="col-right">
+        <div id="detectedStudies"></div>
+        <div id="suggestions">
+          <em>Próximamente sugerencias…</em>
+        </div>
+      </div>
+    </div>
+
+    <div class="derecha">
+      <div style="display:flex; gap:10px; margin-bottom:10px;">
+        <div class="study-badge" id="botonPaciente" style="display:none;"></div>
+        <div class="study-badge" id="botonFechaIngreso" style="display:none;"></div>
+      </div>
+      <textarea id="resultadosLabs" placeholder="Aquí se mostrarán los resultados extraídos..."></textarea>
+
+      <div class="buttons-container">
+        <div class="study-badge" id="copyButton" style="flex:1;">Copiar</div>
+        <div class="study-badge" id="clearButton" style="flex:1;">Borrar</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer"> © 2026 Rourog Innovations. Todos los Derechos Reservados.</div>
+
+<script>
+// Configuración de PDF.js
+if (typeof window.pdfjsLib !== 'undefined') {
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+}
+
+/* ==========================================================================
+   1. MOTOR ANALÍTICO (Cerebro de Tampermonkey 2.8)
+   ========================================================================== */
+const sectionsOrder = [
+  'Biometría Hemática', 'Química Sanguínea', 'Pruebas de Función Hepática',
+  'Electrolitos Sericos', 'Enzimas Cardiacas', 'Perfil Tiroideo',
+  'Perfil de Lipidos', 'Tiempos de Coagulacion', 'Examen General de Orina', 'Otros',
+];
+
+const labDefinitions = {
+  'GRUPO Y RH': { short: 'Grupo/RH', full: 'Grupo Sanguíneo y Factor RH', units: '' },
+  'PRUEBA DE EMBARAZO': { short: 'BHCG', full: 'Prueba de Embarazo (β-hCG)', units: '' },
+  'DIMERO D': { short: 'Dímero D', full: 'Dímero D', units: 'ng/ml' },
+  'LEUCOCITOS': { short: 'Leu', full: 'Leucocitos', units: '10^3/µL' },
+  'NEUTROFILOS': { short: 'Neu', full: 'Neutrófilos', units: '10^3/µL' },
+  'LINFOCITOS': { short: 'Lin', full: 'Linfocitos', units: '10^3/µL' },
+  'MONOCITOS': { short: 'Mon', full: 'Monocitos', units: '10^3/µL' },
+  'EOSINOFILOS': { short: 'Eos', full: 'Eosinófilos', units: '10^3/µL' },
+  'BASOFILOS': { short: 'Bas', full: 'Basófilos', units: '10^6/µL' },
+  'ERITROCITOS': { short: 'Eri', full: 'Eritrocitos', units: 'x10^6/µL' },
+  'HEMOGLOBINA': { short: 'Hb', full: 'Hemoglobina', units: 'g/dL' },
+  'HEMATOCRITO': { short: 'Hto', full: 'Hematocrito', units: '%' },
+  'VOLUMEN CORPUSCULAR MEDIO': { short: 'VCM', full: 'Volumen Corpuscular Medio', units: 'fL' },
+  'HEMOGLOBINA CORPUSCULAR MEDIA': { short: 'HCM', full: 'Hemoglobina Corpuscular Media', units: 'pg' },
+  'PLAQUETAS': { short: 'Pla', full: 'Plaquetas', units: 'x10^3/µL' },
+  'VOLUMEN PLAQUETAR MEDIO': { short: 'VPM', full: 'Volumen Plaquetar Medio', units: 'fL' },
+  'GLUCOSA': { short: 'Glucosa', full: 'Glucosa', units: 'mg/dL' },
+  'UREA': { short: 'Urea', full: 'Urea', units: 'mg/dL' },
+  'CREATININA': { short: 'Creatinina', full: 'Creatinina ', units: 'mg/dL' },
+  'ACIDO URICO': { short: 'Ac. Urico', full: 'Ácido Úrico', units: 'mg/dL' },
+  'BILIRRUBINA TOTAL': { short: 'BT', full: 'Bilirrubina Total', units: 'mg/dL' },
+  'BILIRRUBINA DIRECTA': { short: 'BD', full: 'Bilirrubina Directa', units: 'mg/dL' },
+  'BILIRRUBINA INDIRECTA': { short: 'BI', full: 'Bilirrubina Indirecta', units: 'mg/dL' },
+  'OXALACETICA': { short: 'TGO', full: 'Transaminasa Oxalacética (AST)', units: 'U/L' },
+  'PIRUVICA': { short: 'TGP', full: 'Transaminasa Pirúvica (ALT)', units: 'U/L' },
+  'FOSFATASA ALCALINA': { short: 'FA', full: 'Fosfatasa Alcalina', units: 'U/L' },
+  'GAMAGLUTAMIL TRANSFERASA': { short: 'GGT', full: 'Gamaglutamil Transferasa', units: 'U/L' },
+  'LACTICA': { short: 'DHL', full: 'Deshidrogenasa Lactica', units: 'U/L' },
+  'ALBUMINA': { short: 'Albumina', full: 'Albúmina Sérica', units: 'g/dL' },
+  'PROTEINAS TOTALES': { short: 'PT', full: 'Proteínas Totales', units: 'g/dL' },
+  'AMILASA': { short: 'Amilasa', full: 'Amilasa', units: 'U/L' },
+  'LIPASA': { short: 'Lipasa', full: 'Lipasa', units: 'U/L' },
+  'SODIO': { short: 'Na', full: 'Sodio', units: 'mEq/L' },
+  'POTASIO': { short: 'K', full: 'Potasio', units: 'mEq/L' },
+  'CLORO': { short: 'Cl', full: 'Cloro', units: 'mEq/L' },
+  'CALCIO': { short: 'Ca', full: 'Calcio', units: 'mg/dL' },
+  'FOSFORO': { short: 'P', full: 'Fósforo', units: 'mg/dL' },
+  'MAGNESIO': { short: 'Mg', full: 'Magnesio', units: 'mg/dL' },
+  'CREATINFOSFOQUINASA': { short: 'CPK', full: 'Creatinfosfoquinasa', units: 'U/L' },
+  'CK-MB': { short: 'CK-MB', full: 'Creatina Quinasa MB', units: 'U/L' },
+  'TROPONINA': { short: 'Troponina', full: 'Troponina', units: 'ng/ml' },
+  'MIOGLOBINA': { short: 'Mioglobina', full: 'Mioglobina', units: 'ng/ml' },
+  'T3 TOTAL': { short: 'T3T', full: 'T3 Total', units: 'ng/dL' },
+  'T3 LIBRE': { short: 'T3L', full: 'T3 Libre', units: 'pg/ml' },
+  'T4 TOTAL': { short: 'T4T', full: 'T4 Total', units: 'µg/dL' },
+  'T4 LIBRE': { short: 'T4L', full: 'T4 Libre', units: 'ng/dL' },
+  'TSH': { short: 'TSH', full: 'Hormona Estimulante de Tiroides', units: 'µIU/ml' },
+  'COLESTEROL': { short: 'CT', full: 'Colesterol Total', units: 'mg/dL' },
+  'HDL COLESTEROL': { short: 'HDL', full: 'Colesterol HDL', units: 'mg/dL' },
+  'LDL COLESTEROL': { short: 'LDL', full: 'Colesterol LDL', units: 'mg/dL' },
+  'VLDL COLESTEROL': { short: 'VLDL', full: 'Colesterol VLDL', units: 'mg/dL' },
+  'TRIGLICERIDOS': { short: 'Triglicéridos', full: 'Triglicéridos', units: 'mg/dL' },
+  'TIEMPO DE PROTOMBINA': { short: 'TP', full: 'Tiempo de Protrombina', units: 'seg' },
+  'TIEMPO DE TROMBOPLASTINA PARCIAL': { short: 'TTP', full: 'Tiempo de Tromboplastina Parcial', units: 'seg' },
+  'INR': { short: 'INR', full: 'Índice Internacional Normalizado', units: '' },
+  'ASPECTO_ORINA': { short: 'Aspecto', full: 'Aspecto', units: '' },
+  'COLOR_ORINA': { short: 'Color', full: 'Color', units: '' },
+  'GLUCOSA_ORINA': { short: 'Glucosa', full: 'Glucosa en Orina', units: '' },
+  'DENSIDAD_ORINA': { short: 'Densidad', full: 'Densidad Urinaria', units: '' },
+  'PH_ORINA': { short: 'pH', full: 'pH Urinario', units: '' },
+  'NITRITOS_ORINA': { short: 'Nitritos', full: 'Nitritos en orina', units: '' },
+  'BACTERIAS_ORINA': { short: 'Bacterias', full: 'Bacteriuria', units: '' },
+  'HB_ORINA': { short: 'Hb', full: 'Hemoglobina en Orina', units: '' },
+  'LEUCOCITOS_ORINA': { short: 'Leu', full:'Leucocitos en Orina', units:''},
+  'ERITROCITOS_ORINA': { short: 'Eri', full:'Eritrocitos en Orina', units:''},
+  'CELULAS_ORINA': { short: 'Células', full: 'Células Epiteliales', units: '' },
+  'CRISTALES_ORINA': { short: 'Cristales', full: 'Cristales', units: '' },
+  'CILINDROS_ORINA': { short: 'Cilindros', full: 'Cilindros', units: '' },
+  'MOCO_ORINA': { short: 'Moco', full: 'Moco', units: '' },
+  'LEVADURAS_ORINA': { short: 'Levaduras', full: 'Levaduras', units: '' },
+  'PARASITOS_ORINA': { short: 'Parásitos', full: 'Parásitos', units: '' },
+  '%HBA1C': { short: 'HbA1c', full: 'Hemoglobina Glicosilada', units: '%' },
+  'MICRO ALBUMINA': { short: 'Microalbumina', full: 'Microalbuminuria', units: 'mg/dL' },
+  'PROCALCITONINA': { short: 'Procalcitonina', full: 'Procalcitonina', units: 'ng/ml' },
+  'PROTEINA C REACTIVA': { short: 'PCR', full: 'Proteína C Reactiva', units: 'mg/L' },
+  'NT-PROBNP': { short: 'NT-proBNP', full: 'NT-proBNP', units: 'pg/ml' },
+  'VDRL': { short: 'VDRL', full: 'Sífilis (VDRL)', units: '' },
+  'HIV': { short: 'HIV', full: 'HIV/VIH', units: '' },
+  'VIRUS HEPATITIS A': { short: 'Hep A', full: 'Hepatitis A', units: '' },
+  'VIRUS HEPATITIS B': { short: 'Hep B', full: 'Hepatitis B', units: '' },
+  'VIRUS HEPATITIS C': { short: 'Hep C', full: 'Hepatitis C', units: '' }
+};
+
+function extractDemographics(raw) {
+  let age = null, sex = null;
+  const mEdad = raw.match(/EDAD\s*[:\-]?\s*(\d+)/i);
+  if (mEdad) age = parseInt(mEdad[1], 10);
+  const mSexoLine = raw.match(/SEXO\s*[:\-]?\s*([^\n]+)/i);
+  if (mSexoLine) {
+    const s = mSexoLine[1].toUpperCase();
+    if (s.includes('FEM') || s.includes('MUJ')) sex = 'F';
+    else if (s.includes('MAS') || s.includes('HOM') || s.includes('VAR')) sex = 'M';
+  }
+  return { age, sex };
+}
+
+function segmentTextBlocks(text) {
+  const hdrRx = /(HEMATOLOGIA|QUIMICA|ORINAS|PRUEBAS DE FUNCION(?:AMIENTO)? HEPATICO|COAGULACION|ELECTROLITOS(?: SERICOS)?|FUNCION RENAL|PERFIL DE LIPIDOS|LIPIDOS|PERFIL TIROIDEO|TIROIDES|ENZIMAS CARDIACAS|ENZIMAS|INMUNOLOGIA|VIROLOGIA|MARCADORES TUMORALES|OTROS)/gi;
+  const map = {
+    HEMATOLOGIA: 'Biometría Hemática', QUIMICA: 'Química Sanguínea', ORINAS: 'Examen General de Orina',
+    'PRUEBAS DE FUNCION HEPATICO': 'Pruebas de Función Hepática', 'PRUEBAS DE FUNCIONAMIENTO HEPATICO': 'Pruebas de Función Hepática',
+    COAGULACION: 'Tiempos de Coagulacion', ELECTROLITOS: 'Electrolitos Sericos', 'ELECTROLITOS SERICOS': 'Electrolitos Sericos',
+    'FUNCION RENAL': 'Electrolitos Sericos', 'PERFIL DE LIPIDOS': 'Perfil de Lipidos', LIPIDOS: 'Perfil de Lipidos',
+    'PERFIL TIROIDEO': 'Perfil Tiroideo', TIROIDES: 'Perfil Tiroideo', 'ENZIMAS CARDIACAS': 'Enzimas Cardiacas',
+    ENZIMAS: 'Enzimas Cardiacas', INMUNOLOGIA: 'Otros', VIROLOGIA: 'Otros', 'MARCADORES TUMORALES': 'Otros', OTROS: 'Otros',
+  };
+  const blocks = {};
+  const hits = [...text.matchAll(hdrRx)];
+  if (!hits.length) return { Global: text };
+
+  hits.forEach((m, i) => {
+    const sec = map[m[0].toUpperCase()] || 'Otros';
+    const start = m.index, end = i < hits.length - 1 ? hits[i + 1].index : text.length;
+    blocks[sec] = (blocks[sec] || '') + '\n' + text.slice(start, end);
+  });
+  return blocks;
+}
+
+function detectarGrupoYRh(texto) {
+  const rx = /GRUPO\s+Y\s+RH\s*[:\-]?\s*(["']?[A|B|AB|O]["']?\s*(POSITIVO|NEGATIVO))/i;
+  const match = texto.match(rx);
+  if (!match) return null;
+  const valor = match[1].replace(/["']/g, '').trim().toUpperCase();
+  const def   = labDefinitions['GRUPO Y RH'];
+  return [{ key: 'GRUPO Y RH', short: def.short, full: def.full, units: def.units, value: valor }];
+}
+
+function buildSection(blockText, wanted) {
+  const grab = lbl => {
+    const rx = new RegExp(lbl + '\\s+([^\\n]+?)(?=\\s{2,}|\\n|\\s+(?:mg\\/dl|mmol\\/L|uL|ml|%|fL|pg|g\\/dL|U\\/L|seg|NEGATIVO|NO SE OBSERVAN|ESCASAS|\\d+-\\d+\\s*[xX]\\s*CAMPO)|$)', 'i');
+    const m = blockText.match(rx);
+    return m ? m[1].trim() : null;
+  };
+  return wanted.map(([label, short, uniqueKey]) => {
+      const val = grab(label);
+      if (!val) return null;
+      const key = uniqueKey || (/CK[-\s]?MB/i.test(label) ? 'CK-MB' : label.toUpperCase());
+      const def = labDefinitions[key] || labDefinitions[label.toUpperCase()];
+      return { key: key, short: def ? def.short : short, full: def ? def.full : label, units: def ? def.units : '', value: val };
+    }).filter(Boolean);
+}
+
+function parseLabResults(raw) {
+  const blocks = segmentTextBlocks(raw);
+  const data = {};
+  const wants = (sec, list) => blocks[sec] && (data[sec] = buildSection(blocks[sec], list));
+
+  wants('Biometría Hemática', [['LEUCOCITOS','Leu'],['NEUTROFILOS','Neu'],['LINFOCITOS','Lin'],['MONOCITOS','Mon'],['EOSINOFILOS','Eos'],['BASOFILOS','Bas'],['ERITROCITOS','Eri'],['HEMOGLOBINA','Hb'],['HEMATOCRITO','Hto'],['VOLUMEN CORPUSCULAR MEDIO','VCM'],['HEMOGLOBINA CORPUSCULAR MEDIA','HCM'],['PLAQUETAS','Pla'],['VOLUMEN PLAQUETAR MEDIO','VPM']]);
+  wants('Química Sanguínea', [['GLUCOSA','Glu'],['UREA','Urea'],['CREATININA','Crea'],['ACIDO URICO','Á.Úrico']]);
+  wants('Pruebas de Función Hepática', [['BILIRRUBINA TOTAL','BT'],['BILIRRUBINA DIRECTA','BD'],['BILIRRUBINA INDIRECTA','BI'],['OXALACETICA','TGO'],['PIRUVICA','TGP'],['FOSFATASA ALCALINA','FA'],['GAMAGLUTAMIL TRANSFERASA','GGT'],['LACTICA','DHL'],['ALBUMINA','Alb'],['PROTEINAS TOTALES','PT'],['AMILASA','Amilasa'],['LIPASA','Lipasa']]);
+  wants('Electrolitos Sericos', [['SODIO','Na'],['POTASIO','K'],['CLORO','Cl'],['CALCIO','Ca'],['FOSFORO','P'],['MAGNESIO','Mg']]);
+  wants('Tiempos de Coagulacion', [['TIEMPO DE PROTOMBINA','TP'],['TIEMPO DE TROMBOPLASTINA PARCIAL','TTP'],['INR','INR']]);
+  wants('Perfil de Lipidos', [['COLESTEROL','CT'],['HDL COLESTEROL','HDL'],['LDL COLESTEROL','LDL'],['VLDL COLESTEROL','VLDL'],['TRIGLICERIDOS','Trig']]);
+  wants('Perfil Tiroideo', [['T3 TOTAL','T3T'],['T3 LIBRE','T3L'],['T4 TOTAL','T4T'],['T4 LIBRE','T4L'],['TSH','TSH']]);
+  wants('Enzimas Cardiacas', [['CREATINFOSFOQUINASA','CPK'],['CK-MB','CK-MB'],['CK MB','CK-MB'],['TROPONINA','Trop'],['MIOGLOBINA','Miog']]);
+  wants('Examen General de Orina', [
+      ['COLOR','Color','COLOR_ORINA'], ['ASPECTO','Aspecto','ASPECTO_ORINA'], ['GLUCOSA','Glu','GLUCOSA_ORINA'],
+      ['HB','Hb','HB_ORINA'], ['PH','pH','PH_ORINA'], ['NITRITOS','Nitritos','NITRITOS_ORINA'],
+      ['LEUCOCITOS','Leu','LEUCOCITOS_ORINA'], ['ERITROCITOS','Eri','ERITROCITOS_ORINA'], ['CELULAS','Células','CELULAS_ORINA'],
+      ['CRISTALES','Cristales','CRISTALES_ORINA'], ['CILINDROS','Cilindros','CILINDROS_ORINA'], ['BACTERIAS','Bacterias','BACTERIAS_ORINA'],
+      ['MOCO','Moco','MOCO_ORINA'], ['LEVADURAS','Levaduras','LEVADURAS_ORINA'], ['PARASITOS','Parásitos','PARASITOS_ORINA']
+  ]);
+  
+  const buscarExtras = [['%HBA1C','HbA1c'],['MICRO ALBUMINA','MicroAlb'],['PROCALCITONINA','PCT'],['PROTEINA C REACTIVA','PCR'],['NT PROBNP','NT‑proBNP'],['VDRL','VDRL'],['HIV','HIV'],['VIRUS HEPATITIS A','Hep A'],['VIRUS HEPATITIS B','Hep B'],['VIRUS HEPATITIS C','Hep C'],['DIMERO D', 'Dímero D']];
+  const globalBlock = Object.values(blocks).join('\n');
+  const extraItems = buildSection(globalBlock, buscarExtras);
+  if (extraItems.length) data['Otros'] = (data['Otros'] || []).concat(extraItems);
+  
+  const extraGrupo = detectarGrupoYRh(raw);
+  if (extraGrupo) data['Otros'] = (data['Otros'] || []).concat(extraGrupo);
+
+  return data;
+}
+
+function formatForClipboard(parsed) {
+  let out = '';
+  sectionsOrder.forEach(sec => {
+    const arr = parsed[sec];
+    if (arr && arr.length) {
+      const items = arr.map(it => `${it.short} ${it.value}`).join(', ');
+      out += `${sec}:\n${items}\n\n`;
+    }
+  });
+  return out.trim();
+}
+
+function generateClinicalAlerts(parsed, age = null, sex = null) {
+    const suggestions = [];
+    const pushSug = (txt, level = 'caution') => suggestions.push({text: txt, level: level});
+
+    const getValue = key => {
+        for (const s of Object.values(parsed)) {
+            if (!s) continue;
+            const f = s.find(it => it.key === key);
+            if (f) {
+                const n = parseFloat(String(f.value).replace(',', '.'));
+                return isNaN(n) ? null : n;
+            }
+        }
+        return null;
+    };
+
+    const ULN = { ALT: 40, ALP: 120, CKMB: 25, Troponina: 0.04 };
+
+    // Hemoglobina
+    const hb = getValue('HEMOGLOBINA');
+    if (hb !== null) {
+      if (hb < 6)      pushSug(`Hemoglobina ${hb} g/dL → Anemia Grave (Grado IV).`, 'danger');
+      else if (hb < 8) pushSug(`Hemoglobina ${hb} g/dL → Anemia Grave (Grado III).`, 'warning');
+      else if (hb < 10)pushSug(`Hemoglobina ${hb} g/dL → Anemia Moderada (Grado II).`, 'warning');
+    }
+
+    // Plaquetas
+    const pla = getValue('PLAQUETAS');
+    if (pla !== null) {
+      if (pla > 1000) pushSug(`Plaquetas ${pla}×10³/µL → Trombocitosis severa.`, 'warning');
+      else if (pla < 50) pushSug(`Plaquetas ${pla}×10³/µL → Trombocitopenia severa (<50k).`, 'danger');
+    }
+
+    // Electrolitos
+    const na = getValue('SODIO');
+    if (na !== null) {
+      if (na < 125) pushSug(`Sodio ${na} mEq/L → Hiponatremia Grave.`, 'danger');
+      else if (na < 130) pushSug(`Sodio ${na} mEq/L → Hiponatremia Moderada.`, 'warning');
+      else if (na > 155) pushSug(`Sodio ${na} mEq/L → Hipernatremia Grave.`, 'danger');
+    }
+
+    const k = getValue('POTASIO');
+    if (k !== null) {
+      if (k < 2.5)       pushSug(`Potasio ${k} mEq/L → Hipocalemia Grave.`, 'danger');
+      else if (k >= 7.0) pushSug(`Potasio ${k} mEq/L → Hipercalemia Grave (Pánico).`, 'danger');
+      else if (k > 6.0)  pushSug(`Potasio ${k} mEq/L → Hipercalemia Moderada.`, 'warning');
+    }
+
+    const ca = getValue('CALCIO');
+    if (ca !== null) {
+      if (ca < 7.0) pushSug(`Calcio ${ca} mg/dL → Hipocalcemia Grave.`, 'danger');
+      else if (ca >= 13.0) pushSug(`Calcio ${ca} mg/dL → Hipercalcemia Grave.`, 'danger');
+    }
+
+    // Hepático
+    const ast = getValue('OXALACETICA');
+    const alt = getValue('PIRUVICA');
+    const alp = getValue('FOSFATASA ALCALINA');
+    if (alt!==null && alp!==null) {
+      const R = (alt / ULN.ALT) / (alp / ULN.ALP);
+      if (!isNaN(R) && (alt > ULN.ALT || alp > ULN.ALP)) {
+        if (R > 5) pushSug(`R‑ratio ${R.toFixed(1)} → Patrón Hepatocelular.`, 'warning');
+        else if (R < 2) pushSug(`R‑ratio ${R.toFixed(1)} → Patrón Colestásico.`, 'caution');
+      }
+    }
+
+    // Función Renal y Osmolaridad
+    const crea = getValue('CREATININA');
+    const urea = getValue('UREA');
+    const glucosa = getValue('GLUCOSA');
+
+    if (crea !== null && crea > 1.3) pushSug(`Creatinina ${crea} mg/dL → Elevada.`, 'warning');
+
+    if (na !== null && glucosa !== null && urea !== null) {
+        const osmo = (2 * na) + (glucosa / 18) + (urea / 5.6);
+        let estadoOsmo = osmo > 295 ? 'Hiperosmolar' : (osmo < 275 ? 'Hipoosmolar' : 'Normal');
+        pushSug(`📐 Osmolaridad Sérica: ${osmo.toFixed(1)} mOsm/kg → ${estadoOsmo}.`, osmo > 320 ? 'danger' : 'info');
+    }
+
+    if (urea !== null && crea !== null && crea > 0) {
+        const bun = urea / 2.144;
+        const rel = bun / crea;
+        if (rel > 20) pushSug(`📐 Relación BUN/Cr: ${rel.toFixed(1)} → Patrón Prerrenal.`, 'info');
+    }
+
+    // CKD-EPI 
+    if (age && sex && crea !== null && crea > 0) {
+        let kFactor = sex === 'F' ? 0.7 : 0.9;
+        let a = sex === 'F' ? -0.241 : -0.302;
+        if (crea / kFactor > 1) a = -1.200;
+        let egfr = 142 * Math.pow(Math.min(crea/kFactor, 1), a) * Math.pow(Math.max(crea/kFactor, 1), -1.200) * Math.pow(0.9938, age);
+        if (sex === 'F') egfr *= 1.012;
+
+        let stage = egfr >= 90 ? 'G1' : (egfr >= 60 ? 'G2' : (egfr >= 45 ? 'G3a' : (egfr >= 30 ? 'G3b' : (egfr >= 15 ? 'G4' : 'G5'))));
+        pushSug(`📐 eGFR (CKD-EPI): ${egfr.toFixed(1)} ml/min → Estadío ${stage}.`, egfr < 30 ? 'danger' : (egfr < 60 ? 'warning' : 'info'));
+    }
+
+    const trop = getValue('TROPONINA');
+    if (trop!==null && trop > 0.04) pushSug(`Troponina ${trop} ng/ml → Elevada (>ULN).`, 'danger');
+
+    return suggestions;
+}
+
+function buildAlertsHTML(alertas) {
+  if (!alertas || alertas.length === 0) return '<em>No se generaron sugerencias automáticas.</em>';
+  const styles = {
+      danger: 'background-color: #ef5350; color: #000000; border-left: 8px solid #b71c1c;',
+      warning: 'background-color: #ffa726; color: #000000; border-left: 8px solid #e65100;',
+      caution: 'background-color: #ffee58; color: #000000; border-left: 8px solid #f57f17;',
+      info: 'background-color: #81d4fa; color: #000000; border-left: 8px solid #0d47a1;'
+  };
+  const listItems = alertas.map(a => {
+      const style = styles[a.level] || styles.info;
+      return `<li style="margin-bottom: 8px; padding: 10px; border-radius: 4px; list-style: none; font-size: 0.95rem; font-weight: 600; box-shadow: 0 2px 4px rgba(0,0,0,0.15); ${style}">${a.text}</li>`;
+  }).join('');
+  return `<ul style="margin:0; padding:0;">${listItems}</ul>`;
+}
+
+/* ==========================================================================
+   2. INTERACCIÓN DE INTERFAZ Y EVENTOS
+   ========================================================================== */
+const dropzone = document.getElementById('dropzone');
+let fileInput = document.getElementById('fileInput');
+if (!fileInput) {
+  fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = 'application/pdf';
+  fileInput.id = 'fileInput';
+  fileInput.style.display = 'none';
+  document.body.appendChild(fileInput);
+}
+
+dropzone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', e => {
+  if (e.target.files.length > 0) {
+    const dt = new DataTransfer();
+    dt.items.add(e.target.files[0]);
+    dropzone.dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }));
+  }
+});
+
+const resultadoTextarea = document.getElementById('resultadosLabs');
+const detectedStudiesDiv = document.getElementById('detectedStudies');
+const suggestionsDiv = document.getElementById('suggestions');
+const copyButton = document.getElementById('copyButton');
+const clearButton = document.getElementById('clearButton');
+
+dropzone.addEventListener('dragover', e => {
+  e.preventDefault();
+  dropzone.classList.add('dragover');
+});
+
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+
+dropzone.addEventListener('drop', async e => {
+  e.preventDefault();
+  dropzone.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (!file || file.type !== 'application/pdf') {
+    alert('Por favor, arrastra un archivo PDF válido.'); return;
+  }
+
+  activarAnimacionTubo();
+
+  const reader = new FileReader();
+  reader.onload = async function () {
+    try {
+      const typedArray = new Uint8Array(this.result);
+      const pdf = await window.pdfjsLib.getDocument({ data: typedArray }).promise;
+      let textoCompleto = '';
+      
+      // Renderizar el PDF en el Canvas para la interfaz
+      const page1 = await pdf.getPage(1);
+      const canvas = document.getElementById('pdfPreview');
+      const context = canvas.getContext('2d');
+      const viewport = page1.getViewport({ scale: 1.2 });
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      await page1.render({ canvasContext: context, viewport: viewport }).promise;
+
+      // Extraer el texto completo
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        textoCompleto += textContent.items.map(item => item.str).join(' ') + '\n\n';
+      }
+
+      // Procesar texto extraído con el nuevo motor
+      procesarYMostrarResultados(textoCompleto);
+
+      // Cambiar layout visual
+      document.getElementById('dropzone').style.display = 'none';
+      document.getElementById('pdfViewer').style.display = 'flex';
+      document.querySelector('.col-right').style.display = 'flex';
+
+    } catch (err) {
+      console.error('Error al procesar el PDF:', err);
+      alert('Hubo un error al leer el PDF.');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+});
+
+// Soporte para pegar texto directamente en la página (Modo puente invisible)
+document.addEventListener('paste', async (e) => {
+  const pasteData = (e.clipboardData || window.clipboardData).getData('text');
+  if(pasteData && pasteData.length > 50) {
+      activarAnimacionTubo();
+      procesarYMostrarResultados(pasteData);
+      
+      document.getElementById('dropzone').style.display = 'none';
+      document.getElementById('pdfViewer').style.display = 'flex';
+      document.querySelector('.col-right').style.display = 'flex';
+  }
+});
+
+function procesarYMostrarResultados(textoExtraido) {
+  const demographics = extractDemographics(textoExtraido);
+  const parsedData = parseLabResults(textoExtraido);
+  
+  // Llenar Textarea
+  resultadoTextarea.value = formatForClipboard(parsedData);
+  
+  // Llenar Alertas Clínicas (Triage)
+  const alertas = generateClinicalAlerts(parsedData, demographics.age, demographics.sex);
+  suggestionsDiv.innerHTML = buildAlertsHTML(alertas);
+
+  // Renderizar Badges
+  detectedStudiesDiv.innerHTML = '';
+  sectionsOrder.forEach(sec => {
+    if (parsedData[sec] && parsedData[sec].length > 0) {
+      const badge = document.createElement('div');
+      badge.className = 'study-badge';
+      badge.textContent = sec;
+      detectedStudiesDiv.appendChild(badge);
+    }
+  });
+}
+
+function activarAnimacionTubo() {
+  const tubo = document.querySelector('.tubo-ensayo');
+  if(tubo) {
+      tubo.classList.remove('shake');
+      void tubo.offsetWidth; // Reforzar reset
+      tubo.classList.add('shake');
+      
+      const burbujeo = document.getElementById('bubbleSound');
+      if (burbujeo) {
+        burbujeo.currentTime = 0;
+        burbujeo.play().catch(() => {});
+      }
+      setTimeout(() => tubo.classList.remove('shake'), 6000);
+  }
+  const okSound = document.getElementById('pdfOk');
+  if(okSound) { okSound.currentTime = 0; okSound.play().catch(()=>{}); }
+}
+
+/* ===== Eventos de los Botones ===== */
+copyButton.addEventListener('click', async () => {
+    try {
+        await navigator.clipboard.writeText(resultadoTextarea.value);
+        const originalText = copyButton.textContent;
+        copyButton.textContent = '¡Copiado!';
+        setTimeout(() => copyButton.textContent = originalText, 1800);
+    } catch(err) {
+        alert('Error al copiar al portapapeles.');
+    }
+});
+
+clearButton.addEventListener('click', () => {
+    resultadoTextarea.value = '';
+    suggestionsDiv.innerHTML = '<em>Próximamente sugerencias…</em>';
+    detectedStudiesDiv.innerHTML = '';
+    document.getElementById('dropzone').style.display = 'flex';
+    document.getElementById('pdfViewer').style.display = 'none';
+    document.querySelector('.col-right').style.display = 'none';
+    if(fileInput) fileInput.value = '';
+});
+
+/* ===== Tema Oscuro / Claro ===== */
+const themeToggle = document.getElementById('toggleTheme');
+themeToggle.addEventListener('click', () => {
+    const body = document.body;
+    if (body.classList.contains('day')) {
+        body.classList.replace('day', 'dark');
+        themeToggle.textContent = '☀️';
+    } else {
+        body.classList.replace('dark', 'day');
+        themeToggle.textContent = '🌙';
+    }
+});
+
+// Evento click directo en el tubo para forzar animación
+document.querySelector('.tubo-ensayo').addEventListener('click', activarAnimacionTubo);
+
+</script>
+</body>
+</html>
