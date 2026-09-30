@@ -2,10 +2,18 @@
 
 https://rourog.github.io/labs/experimentos/confetti/
 
-14 efectos combinables de dos en dos: confetti normal, Halloween, telarañas, telarañas con confetti, murciélagos, remolino, chispas, humo ampliado, fuegos artificiales, estrellas, corazones, globos, medalla y respiro dorado. Cantidad compartida entre capas y controles de duración, apertura y tamaño.
+16 efectos combinables de dos en dos. Incluye el motor original de Firework Simulator v2 de Caleb Miller con seis variantes y selección mixta, y globos con SVG de Artur Bień (balloons-js). Conserva los efectos simples para comparar.
 
-Sonidos sintetizados con Web Audio: campanilla, fanfarria, estallido, magia, Halloween y respiro. Sin sonido por defecto; volumen local y activación por gesto en cada pestaña. Limpiar detiene también el sonido.
+Cantidad compartida entre capas, duración hasta 8 segundos, apertura y tamaño. Para los fuegos de Caleb, cantidad controla cohetes y partículas; tamaño controla su escala. La apertura se usa en los efectos de partículas simples. Prueba 4–6 segundos para apreciar lanzamiento y explosión.
 
-Presets: telarañas con murciélagos, gran final, objetivo cumplido y respiro. Botón de simulación ¡Urgencias vacías! No conecta con pacientes ni modifica el censo publicado.
+Sonidos sintetizados locales, apagados por defecto; no se descargan los audios del simulador. Cada pestaña activa audio con un gesto. Limpiar cancela partículas, cohetes pendientes y animaciones de globos.
 
-BroadcastChannel sincroniza pestañas del mismo navegador y origen; las mini vistas son simuladas. No conecta dispositivos distintos. Respeta movimiento reducido salvo activación explícita. Ajustes descargables en JSON.
+BroadcastChannel sincroniza pestañas del mismo navegador y origen. Las mini vistas son simuladas; no conecta dispositivos distintos ni datos de pacientes. Respeta movimiento reducido salvo activación explícita. No modifica el censo publicado.
+
+## Autores
+
+Caleb Miller, Firework Simulator v2; copia de troyxun/fireworks-simulator. Artur Bień, balloons-js. Licencias MIT y detalles de adaptación en vendor/NOTICE.md.
+
+## Validación
+
+Motor original ejercitado para siete selecciones de explosión con canvas simulado, verificando renderizado y limpieza de partículas. Controlador probado con los 16 efectos y combinaciones, deduplicación y sonidos. Revisión visual del sitio publicado.
