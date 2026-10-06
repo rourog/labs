@@ -9,7 +9,7 @@ vm.runInNewContext(fs.readFileSync('experimentos/confetti/hit-sounds.js','utf8')
  assert.equal(window.HitSoundLab.catalog.length,6);assert.equal(created.length,0,'Never autoplay');
  const creatures=nodes.get('hitCreatureStage').children;
  creatures[0].onclick();creatures[0].onclick();await Promise.resolve();
- assert.equal(created.length,1,'A dying creature counts as one hit');assert.match(created[0].url,/cartoon\/pop.ogg$/);assert.equal(created[0].volume,.2);
+ assert.equal(created.length,1,'A dying creature counts as one hit');assert.match(created[0].url,/cartoon\/pop.ogg$/);assert.equal(created[0].volume,.2);assert.equal(created[0].currentTime,.39,'Skip leading silence');
  creatures[3].onclick();await Promise.resolve();assert.equal(created[0].paused,true,'Avoid overlapping feedback');assert.match(created[1].url,/suction_cup_pull/);
  nodes.get('batHitSound').value='button';nodes.get('batHitSound').onchange();await Promise.resolve();
  assert.match(created.at(-1).url,/button_push/);assert.equal(JSON.parse(stored.values().next().value).bats,'button');

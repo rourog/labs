@@ -1,12 +1,12 @@
 /* Google-hosted candidates, evaluated only in the laboratory. */
 (() => {
  const catalog = [
-  {id:'pop',name:'Pop',file:'cartoon/pop.ogg'},
-  {id:'suction',name:'Ventosa',file:'cartoon/suction_cup_pull.ogg'},
-  {id:'wood',name:'Golpe de madera',file:'cartoon/woodblock_hit.ogg'},
-  {id:'boing',name:'Boing',file:'cartoon/cartoon_boing.ogg'},
-  {id:'ring',name:'Tintineo',file:'cartoon/cartoon_ringing_hit.ogg'},
-  {id:'button',name:'Clic de botón',file:'household/button_push.ogg'}
+  {id:'pop',name:'Pop',start:0.39,file:'cartoon/pop.ogg'},
+  {id:'suction',name:'Ventosa',start:0.05,file:'cartoon/suction_cup_pull.ogg'},
+  {id:'wood',name:'Golpe de madera',start:0.38,file:'cartoon/woodblock_hit.ogg'},
+  {id:'boing',name:'Boing',start:0.04,file:'cartoon/cartoon_boing.ogg'},
+  {id:'ring',name:'Tintineo',start:1.55,file:'cartoon/cartoon_ringing_hit.ogg'},
+  {id:'button',name:'Clic de botón',start:0.4,file:'household/button_push.ogg'}
  ];
  const $ = id => document.getElementById(id);
  const key='labs-creature-hit-sounds-v1';
@@ -18,7 +18,7 @@
  function play(id){
   stop();const sound=catalog.find(s=>s.id===id);if(!sound||settings.volume===0)return;
   const media=new Audio('https://actions.google.com/sounds/v1/'+sound.file),token=generation;
-  playing=media;media.volume=settings.volume/100;
+  playing=media;media.volume=settings.volume/100;media.currentTime=sound.start;
   media.play().then(()=>{
    if(token!==generation)return;
    $('hitSoundStatus').textContent='Sonando: '+sound.name;
