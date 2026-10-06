@@ -64,7 +64,7 @@ resetGhosts();$('ghostReset').onclick=resetGhosts;
 $('ghostCanvas').onpointerdown=event=>{
  const rect=event.currentTarget.getBoundingClientRect(),x=event.clientX-rect.left,y=event.clientY-rect.top;
  const hit=previewGhosts.slice().reverse().find(g=>g.dyingAt===null&&g.bounds&&x>=g.bounds.left&&x<=g.bounds.right&&y>=g.bounds.top&&y<=g.bounds.bottom);
- if(hit)hit.dyingAt=performance.now()/1000;
+ if(hit){hit.dyingAt=performance.now()/1000;window.HitSoundLab?.hit('ghosts');}
 };
 function previewFrame(now){
  const seconds=now/1000,dt=Math.min(.05,Math.max(0,seconds-previewTime));previewTime=seconds;

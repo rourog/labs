@@ -17,3 +17,18 @@ Caleb Miller, Firework Simulator v2; copia de troyxun/fireworks-simulator. Artur
 ## Validación
 
 Motor original ejercitado para siete selecciones de explosión con canvas simulado, verificando renderizado y limpieza de partículas. Controlador probado con los 16 efectos y combinaciones, deduplicación y sonidos. Revisión visual del sitio publicado.
+
+## Sonidos al eliminar criaturas
+
+Zona independiente para comparar seis archivos originales alojados por Google:
+Pop, Suction Cup Pull, Woodblock Hit, Cartoon Boing, Cartoon Ringing Hit y Button Push.
+Se elige un sonido por especie y volumen de 0–60%; los ajustes se conservan localmente.
+La vista previa reproduce hasta 1.2 segundos, con final suavizado en los archivos largos.
+No hay reproducción automática ni transmisión de estos sonidos a otras pantallas.
+Los fantasmas de la vista anterior también utilizan el sonido elegido.
+
+Fuentes: https://developers.google.com/assistant/tools/sound-library/cartoon
+y https://developers.google.com/assistant/tools/sound-library/household.
+Se referencian los archivos originales; no se redistribuyen copias.
+El uso de la biblioteca está sujeto a los términos de Actions on Google:
+https://developers.google.com/assistant/tools/sound-library.
